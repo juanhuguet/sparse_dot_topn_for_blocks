@@ -37,7 +37,7 @@ ctypedef fused  float_ft:
 
 cdef extern from "sparse_dot_topn_parallel.h":
 
-	cdef void sparse_dot_topn_parallel[T](
+	cdef int sparse_dot_topn_block_parallel[T](
 		int n_row,
 		int n_col,
 		int Ap[],
@@ -51,6 +51,11 @@ cdef extern from "sparse_dot_topn_parallel.h":
 		int Cp[],
 		int Cj[],
 		T Cx[],
+		vector[int]* alt_Cj,
+		vector[T]* alt_Cx,
+		int nnz_max,
+		int* row_full_nnz,
+		int* n_minmax,
 		int n_jobs
 	) except +;
 
@@ -89,7 +94,7 @@ cdef extern from "sparse_dot_topn_parallel.h":
 		int n_jobs
 	) except +;
 
-cpdef sparse_dot_topn_threaded(
+cpdef sparse_dot_topn_block_threaded(
 	int n_row,
 	int n_col,
 	np.ndarray[int, ndim=1] a_indptr,
@@ -103,6 +108,8 @@ cpdef sparse_dot_topn_threaded(
 	np.ndarray[int, ndim=1] c_indptr,
 	np.ndarray[int, ndim=1] c_indices,
 	np.ndarray[float_ft, ndim=1] c_data,
+	np.ndarray[int, ndim=1] row_full_nnz,
+	np.ndarray[int, ndim=1] nminmax,
 	int n_jobs
 ):
 
@@ -115,11 +122,31 @@ cpdef sparse_dot_topn_threaded(
 	cdef int* Cp = &c_indptr[0]
 	cdef int* Cj = &c_indices[0]
 	cdef float_ft* Cx = &c_data[0]
+	cdef int* var_row_full_nnz = &row_full_nnz[0]
+	cdef int* n_minmax = &nminmax[0]
+	
+	cdef nnz_max = len(c_indices)
+	
+	cdef vector[int] vCj;
+	cdef vector[float_ft] vCx;
 
-	sparse_dot_topn_parallel(
-		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound, Cp, Cj, Cx, n_jobs
+	cdef int nnz_max_is_too_small = sparse_dot_topn_block_parallel(
+		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound,
+		Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax, n_jobs
 	)
-	return
+	
+	if nnz_max_is_too_small:
+		
+		# raise Exception("In sparse_dot_topn_threaded.pyx")
+		
+		c_indices = np.asarray(ArrayWrapper_int(vCj)).squeeze(axis=0)
+		c_data = np.asarray(ArrayWrapper_template(vCx)).squeeze(axis=0)
+	
+		return c_indices, c_data
+	
+	else:
+		
+		return None, None
 
 cpdef ArrayWrapper_template(vector[float_ft] vCx):
 	# raise Exception("In sparse_dot_topn_threaded.pyx")

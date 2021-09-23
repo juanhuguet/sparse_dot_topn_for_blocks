@@ -24,57 +24,7 @@
 #define UTILS_CPPCLASS_H
 
 template<typename T>
-struct Candidate {
-	int index;
-	T value;
-
-	bool operator<(const Candidate& a) const
-    {
-        return a.value < value;
-    }
-	
-};
-
-template<typename T>
-extern void sparse_dot_topn_source(
-		int n_row,
-		int n_col,
-		int Ap[],
-		int Aj[],
-		T Ax[],	//data of A
-		int Bp[],
-		int Bj[],
-		T Bx[],	//data of B
-		int ntop,
-		T lower_bound,
-		int Cp[],
-		int Cj[],
-		T Cx[]		//data of C
-);
-
-template<typename T>
-extern int sparse_dot_topn_extd_source(
-		int n_row,
-		int n_col,
-		int Ap[],
-		int Aj[],
-		T Ax[],	//data of A
-		int Bp[],
-		int Bj[],
-		T Bx[],	//data of B
-		int ntop,
-		T lower_bound,
-		int Cp[],
-		int Cj[],
-		T Cx[], 	//data of C
-		std::vector<int>* alt_Cj,
-		std::vector<T>* alt_Cx,
-		int nnz_max,
-		int* n_minmax
-);
-
-template<typename T>
-extern int sparse_dot_only_nnz_source(
+extern int sparse_dot_topn_block_parallel(
 		int n_row,
 		int n_col,
 		int Ap[],
@@ -84,7 +34,53 @@ extern int sparse_dot_only_nnz_source(
 		int Bj[],
 		T Bx[], //data of B
 		int ntop,
-		T lower_bound
+		T lower_bound,
+		int Cp[],
+		int Cj[],
+		T Cx[],
+		std::vector<int>* alt_Cj,
+		std::vector<T>* alt_Cx,
+		int nnz_max,
+		int *row_full_nnz,
+		int *n_minmax,
+		int n_jobs
+);
+
+template<typename T>
+extern int sparse_dot_topn_extd_parallel(
+		int n_row,
+		int n_col,
+		int Ap[],
+		int Aj[],
+		T Ax[],
+		int Bp[],
+		int Bj[],
+		T Bx[],
+		int ntop,
+		T lower_bound,
+		int Cp[],
+		int Cj[],
+		T Cx[],
+		std::vector<int>* alt_Cj,
+		std::vector<T>* alt_Cx,
+		int nnz_max,
+		int* n_minmax,
+		int n_jobs
+);
+
+template<typename T>
+extern int sparse_dot_only_nnz_parallel(
+	int n_row,
+	int n_col,
+	int Ap[],
+	int Aj[],
+	T Ax[],
+	int Bp[],
+	int Bj[],
+	T Bx[],
+	int ntop,
+	T lower_bound,
+	int n_jobs
 );
 
 #endif //UTILS_CPPCLASS_H

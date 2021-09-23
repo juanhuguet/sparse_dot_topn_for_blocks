@@ -36,7 +36,7 @@ ctypedef fused  float_ft:
 
 cdef extern from "sparse_dot_topn_source.h":
 
-	cdef void sparse_dot_topn_source[T](
+	cdef int sparse_dot_topn_block_source[T](
 		int n_row,
 		int n_col,
 		int Ap[],
@@ -49,7 +49,12 @@ cdef extern from "sparse_dot_topn_source.h":
 		T lower_bound,
 		int Cp[],
 		int Cj[],
-		T Cx[]
+		T Cx[],
+		vector[int]* alt_Cj,
+		vector[T]* alt_Cx,
+		int nnz_max,
+		int* row_full_nnz,
+		int* nminmax
 	) except +;
 
 	cdef int sparse_dot_topn_extd_source[T](
@@ -94,7 +99,7 @@ cpdef ArrayWrapper_template(vector[float_ft] vCx):
 	else:
 		raise Exception("Type not supported")
 
-cpdef sparse_dot_topn(
+cpdef sparse_dot_topn_block(
 	int n_row,
 	int n_col,
 	np.ndarray[int, ndim=1] a_indptr,
@@ -107,12 +112,17 @@ cpdef sparse_dot_topn(
 	float_ft lower_bound,
 	np.ndarray[int, ndim=1] c_indptr,
 	np.ndarray[int, ndim=1] c_indices,
-	np.ndarray[float_ft, ndim=1] c_data
+	np.ndarray[float_ft, ndim=1] c_data,
+	np.ndarray[int, ndim=1] row_full_nnz,
+	np.ndarray[int, ndim=1] nminmax
 ):
 	"""
-	Cython glue function to call sparse_dot_topn C++ implementation
-	This function will return a matrix C in CSR format, where
-	C = [sorted top n results and results > lower_bound for each row of A * B]
+	Cython glue function to call sparse_dot_topn_extd C++
+	implementation.  This function will return a matrix C in CSR
+	format, where
+	C = [sorted top n results > lower_bound for each row of A * B]
+	The maximum number nminmax of elements per row of C (assuming 
+	n = number of columns of B) is also returned.
 
 	Input:
 		n_row: number of rows of A matrix
@@ -121,14 +131,26 @@ cpdef sparse_dot_topn(
 		a_indptr, a_indices, a_data: CSR expression of A matrix
 		b_indptr, b_indices, b_data: CSR expression of B matrix
 
-		ntop: n top results
-		lower_bound: a threshold that the element of A*B must greater than
+		ntop: n, the number of topmost results > lower_bound for
+			  each row of C
+		lower_bound: a threshold that the element of A*B must
+					 greater than
 
 	Output by reference:
-		c_indptr, c_indices, c_data: CSR expression of C matrix
+		c_indptr, c_indices, c_data: CSR expression of matrix C
+		nminmax: The maximum number of elements per row of C 
+				 (assuming ntop = n_col)
+
+	Returned output:
+		c_indices, c_data: CSR expression of matrix C.  These will 
+						be returned instead of output by reference
+						if the preset sizes of c_indices and 
+						c_data are too small to hold all the 
+						results.
 
 	N.B. A and B must be CSR format!!!
-		 The type of input numpy array must be aligned with types of C++ function arguments!
+		 The type of input numpy array must be aligned with types
+		 of C++ function arguments!
 	"""
 
 	cdef int* Ap = &a_indptr[0]
@@ -140,11 +162,31 @@ cpdef sparse_dot_topn(
 	cdef int* Cp = &c_indptr[0]
 	cdef int* Cj = &c_indices[0]
 	cdef float_ft* Cx = &c_data[0]
+	cdef int* var_row_full_nnz = &row_full_nnz[0]
+	cdef int* n_minmax = &nminmax[0]
+	
+	cdef nnz_max = len(c_indices)
+	
+	cdef vector[int] vCj;
+	cdef vector[float_ft] vCx;
 
-	sparse_dot_topn_source(
-		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound, Cp, Cj, Cx
+	cdef int nnz_max_is_too_small = sparse_dot_topn_block_source(
+		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound,
+		Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax
 	)
-	return
+	
+	if nnz_max_is_too_small:
+		
+		# raise Exception("In sparse_dot_topn.pyx")
+		
+		c_indices = np.asarray(ArrayWrapper_int(vCj)).squeeze(axis=0)
+		c_data = np.asarray(ArrayWrapper_template(vCx)).squeeze(axis=0)
+	
+		return c_indices, c_data		
+	
+	else:
+		
+		return None, None
 
 cpdef sparse_dot_topn_extd(
 	int n_row,
@@ -216,7 +258,8 @@ cpdef sparse_dot_topn_extd(
 	cdef vector[float_ft] vCx;
 
 	cdef int nnz_max_is_too_small = sparse_dot_topn_extd_source(
-		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound, Cp, Cj, Cx, &vCj, &vCx, nnz_max, n_minmax
+		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound,
+		Cp, Cj, Cx, &vCj, &vCx, nnz_max, n_minmax
 	)
 	
 	if nnz_max_is_too_small:

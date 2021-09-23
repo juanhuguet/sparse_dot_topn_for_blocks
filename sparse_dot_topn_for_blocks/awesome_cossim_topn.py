@@ -4,15 +4,15 @@ from scipy.sparse import csr_matrix
 from scipy.sparse import isspmatrix_csr
 
 if sys.version_info[0] >= 3:
-    from sparse_dot_topn import sparse_dot_topn as ct
-    from sparse_dot_topn import sparse_dot_topn_threaded as ct_thread
+    from sparse_dot_topn_for_blocks import sparse_dot_topn as ct
+    from sparse_dot_topn_for_blocks import sparse_dot_topn_threaded as ct_thread
 else:
     import sparse_dot_topn as ct
     import sparse_dot_topn_threaded as ct_thread
 
 
 def awesome_cossim_topn(
-        A, B, ntop, lower_bound=0, use_threads=False, n_jobs=1, return_best_ntop=False, test_nnz_max=-1):
+        A, B, ntop, row_ntop_array, lower_bound=0, use_threads=False, n_jobs=1, return_best_ntop=False, test_nnz_max=-1):
     """
     This function will return a matrix C in CSR format, where
     C = [sorted top n results > lower_bound for each row of A * B].
@@ -99,7 +99,7 @@ def awesome_cossim_topn(
 
     if not use_threads:
 
-        alt_indices, alt_data = ct.sparse_dot_topn_extd(
+        alt_indices, alt_data = ct.sparse_dot_topn_block(
             M, N, np.asarray(A.indptr, dtype=idx_dtype),
             np.asarray(A.indices, dtype=idx_dtype),
             A.data,
@@ -108,7 +108,7 @@ def awesome_cossim_topn(
             B.data,
             ntop,
             lower_bound,
-            indptr, indices, data, best_ntop_arr
+            indptr, indices, data, row_ntop_array, best_ntop_arr
         )
 
     else:
@@ -116,7 +116,7 @@ def awesome_cossim_topn(
             err_str = 'Whenever you select the multi-thread mode, n_job must be greater than or equal to 1!'
             raise ValueError(err_str)
 
-        alt_indices, alt_data = ct_thread.sparse_dot_topn_extd_threaded(
+        alt_indices, alt_data = ct_thread.sparse_dot_topn_block_threaded(
             M, N, np.asarray(A.indptr, dtype=idx_dtype),
             np.asarray(A.indices, dtype=idx_dtype),
             A.data,
@@ -125,7 +125,7 @@ def awesome_cossim_topn(
             B.data,
             ntop,
             lower_bound,
-            indptr, indices, data, best_ntop_arr, n_jobs
+            indptr, indices, data, row_ntop_array, best_ntop_arr, n_jobs
         )
 
     if alt_indices is not None:

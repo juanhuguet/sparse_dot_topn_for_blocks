@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from sparse_dot_topn import awesome_cossim_topn
+from sparse_dot_topn_for_blocks import awesome_cossim_topn
 from scipy.sparse.csr import csr_matrix
 from scipy.sparse import coo_matrix
 from scipy.sparse import rand
@@ -40,11 +40,13 @@ def awesome_cossim_topn_wrapper(A, B, ntop, lower_bound=0, use_threads=False, n_
     It has the same signature, but has an extra parameter: expect_best_ntop
     """
 
-    result1, best_ntop = awesome_cossim_topn(A, B, ntop, lower_bound, use_threads, n_jobs, True, test_nnz_max)
+    nnz_rows = np.full(A.shape[0], 0, dtype=np.int32)
+    result1, best_ntop = awesome_cossim_topn(A, B, ntop, nnz_rows, lower_bound, use_threads, n_jobs, True, test_nnz_max)
 
     assert expect_best_ntop == best_ntop
 
-    result2 = awesome_cossim_topn(A, B, ntop, lower_bound, use_threads, n_jobs, False, test_nnz_max)
+    nnz_rows[:] = 0
+    result2 = awesome_cossim_topn(A, B, ntop, nnz_rows, lower_bound, use_threads, n_jobs, False, test_nnz_max)
 
     assert (result1 != result2).nnz == 0  # The 2 CSR matrix are the same
 

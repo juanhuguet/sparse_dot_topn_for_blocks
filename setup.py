@@ -38,41 +38,42 @@ if os.name == 'nt':
 else:
     extra_compile_args = ['-std=c++0x', '-pthread', '-O3']
 
-array_wrappers_ext = Extension('sparse_dot_topn.array_wrappers',
+array_wrappers_ext = Extension('sparse_dot_topn_for_blocks.array_wrappers',
                          sources=[
-                                    './sparse_dot_topn/array_wrappers.pyx',
+                                    './sparse_dot_topn_for_blocks/array_wrappers.pyx',
                                 ],
                          extra_compile_args=extra_compile_args,
                          language='c++')
 
-original_ext = Extension('sparse_dot_topn.sparse_dot_topn',
+original_ext = Extension('sparse_dot_topn_for_blocks.sparse_dot_topn',
                          sources=[
-                                    './sparse_dot_topn/sparse_dot_topn.pyx',
-                                    './sparse_dot_topn/sparse_dot_topn_source.cpp'
+                                    './sparse_dot_topn_for_blocks/sparse_dot_topn.pyx',
+                                    './sparse_dot_topn_for_blocks/sparse_dot_topn_source.cpp'
                                 ],
                          extra_compile_args=extra_compile_args,
                          language='c++')
 
-threaded_ext = Extension('sparse_dot_topn.sparse_dot_topn_threaded',
+threaded_ext = Extension('sparse_dot_topn_for_blocks.sparse_dot_topn_threaded',
                          sources=[
-                             './sparse_dot_topn/sparse_dot_topn_threaded.pyx',
-                             './sparse_dot_topn/sparse_dot_topn_source.cpp',
-                             './sparse_dot_topn/sparse_dot_topn_parallel.cpp'],
+                             './sparse_dot_topn_for_blocks/sparse_dot_topn_threaded.pyx',
+                             './sparse_dot_topn_for_blocks/sparse_dot_topn_source.cpp',
+                             './sparse_dot_topn_for_blocks/sparse_dot_topn_parallel.cpp'],
                          extra_compile_args=extra_compile_args,
                          language='c++')
 
 
 setup(
-    name='sparse_dot_topn',
-    version='0.3.1',
-    description='This package boosts a sparse matrix multiplication '\
-                'followed by selecting the top-n multiplication',
+    name='sparse_dot_topn_for_blocks',
+    version='0.3.1-1',
+    description='This package is intended for matrix blocks, boosting '
+                'a sparse matrix multiplication followed by selecting '
+                'the top-n multiplication',
     keywords='cosine-similarity sparse-matrix scipy cython',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/ing-bank/sparse_dot_topn',
-    author='Zhe Sun',
-    author_email='ymwdalex@gmail.com',
+    url='https://github.com/ParticularMiner/sparse_dot_topn_for_blocks',
+    author='Particular Miner',
+    author_email='particularminer@fake.com',
     license='Apache 2.0',
     setup_requires=[
         # Setuptools 18.0 properly handles Cython extensions.
@@ -93,7 +94,7 @@ setup(
     cmdclass={'build_ext': my_build_ext},
     ext_modules=[array_wrappers_ext, original_ext, threaded_ext],
     package_data = {
-        'sparse_dot_topn': ['./sparse_dot_topn/*.pxd']
+        'sparse_dot_topn_for_blocks': ['./sparse_dot_topn_for_blocks/*.pxd']
     },
     include_package_data=True,    
 )

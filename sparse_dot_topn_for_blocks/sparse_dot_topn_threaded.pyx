@@ -37,6 +37,27 @@ ctypedef fused  float_ft:
 
 cdef extern from "sparse_dot_topn_parallel.h":
 
+	cdef int sparse_dot_block_parallel[T](
+		int n_row,
+		int n_col,
+		int Ap[],
+		int Aj[],
+		T Ax[],
+		int Bp[],
+		int Bj[],
+		T Bx[],
+		T lower_bound,
+		int Cp[],
+		int Cj[],
+		T Cx[],
+		vector[int]* alt_Cj,
+		vector[T]* alt_Cx,
+		int nnz_max,
+		int* row_full_nnz,
+		int* n_minmax,
+		int n_jobs
+	) except +;
+
 	cdef int sparse_dot_topn_block_parallel[T](
 		int n_row,
 		int n_col,
@@ -110,6 +131,7 @@ cpdef sparse_dot_topn_block_threaded(
 	np.ndarray[float_ft, ndim=1] c_data,
 	np.ndarray[int, ndim=1] row_full_nnz,
 	np.ndarray[int, ndim=1] nminmax,
+	int sorted,
 	int n_jobs
 ):
 
@@ -130,10 +152,18 @@ cpdef sparse_dot_topn_block_threaded(
 	cdef vector[int] vCj;
 	cdef vector[float_ft] vCx;
 
-	cdef int nnz_max_is_too_small = sparse_dot_topn_block_parallel(
-		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound,
-		Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax, n_jobs
-	)
+	cdef int nnz_max_is_too_small
+
+	if (ntop < n_col) or (sorted != 0):
+		nnz_max_is_too_small = sparse_dot_topn_block_parallel(
+			n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound,
+			Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax, n_jobs
+		)
+	else:
+		nnz_max_is_too_small = sparse_dot_block_parallel(
+			n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, lower_bound,
+			Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax, n_jobs
+		)
 	
 	if nnz_max_is_too_small:
 		

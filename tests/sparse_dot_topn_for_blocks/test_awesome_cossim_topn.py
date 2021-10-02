@@ -33,7 +33,7 @@ def get_n_top_sparse(mat, n_top=10):
     return sorted(result, key=lambda x: -x[1])
 
 
-def awesome_cossim_topn_wrapper(A, B, ntop, lower_bound=0, use_threads=False, n_jobs=1, return_best_ntop=False, test_nnz_max=-1, expect_best_ntop=None):
+def awesome_cossim_topn_wrapper(A, B, ntop, lower_bound=0, use_threads=False, n_jobs=1, return_best_ntop=False, test_nnz_max=-1, expect_best_ntop=None, sort=True):
     """
     This function is running awesome_cossim_topn()
     with and without return_best_ntop and checking if we get the expected result and if both results are the same.
@@ -41,29 +41,33 @@ def awesome_cossim_topn_wrapper(A, B, ntop, lower_bound=0, use_threads=False, n_
     """
 
     nnz_rows = np.full(A.shape[0], 0, dtype=np.int32)
-    result1, best_ntop = awesome_cossim_topn(A, B, ntop, nnz_rows, lower_bound, use_threads, n_jobs, True, test_nnz_max)
+    result1, best_ntop = awesome_cossim_topn(A, B, ntop, nnz_rows, lower_bound, use_threads, n_jobs, True, test_nnz_max, sort=sort)
 
     assert expect_best_ntop == best_ntop
 
     nnz_rows[:] = 0
-    result2 = awesome_cossim_topn(A, B, ntop, nnz_rows, lower_bound, use_threads, n_jobs, False, test_nnz_max)
+    result2 = awesome_cossim_topn(A, B, ntop, nnz_rows, lower_bound, use_threads, n_jobs, False, test_nnz_max, sort=sort)
 
     assert (result1 != result2).nnz == 0  # The 2 CSR matrix are the same
+    
+    if ntop < B.shape[1]:
+        result3 = awesome_cossim_topn(A, B, ntop, nnz_rows, lower_bound, use_threads, n_jobs, False, test_nnz_max, sort=(not sort))
 
+        assert (result1 != result3).nnz == 0  # The 2 CSR matrix are the same
     return result1
 
 
 def awesome_cossim_topn_array_wrapper_test(
-        A, B, ntop, lower_bound=0, use_threads=False, n_jobs=1, return_best_ntop=False, test_nnz_max=-1, expect_best_ntop=None):
+        A, B, ntop, lower_bound=0, use_threads=False, n_jobs=1, return_best_ntop=False, test_nnz_max=-1, expect_best_ntop=None, sort=True):
     """
     This function is running awesome_cossim_topn_wrapper()
     with and without test_nnz_max=1 and checking if we get the expected result and if both results are the same.
     It has the same signature as awesome_cossim_topn(), but has an extra parameter: expect_best_ntop
     """
 
-    result1 = awesome_cossim_topn_wrapper(A, B, ntop, lower_bound, use_threads, n_jobs, expect_best_ntop=expect_best_ntop)
+    result1 = awesome_cossim_topn_wrapper(A, B, ntop, lower_bound, use_threads, n_jobs, expect_best_ntop=expect_best_ntop, sort=sort)
 
-    result2 = awesome_cossim_topn_wrapper(A, B, ntop, lower_bound, use_threads, n_jobs, test_nnz_max=1, expect_best_ntop=expect_best_ntop)
+    result2 = awesome_cossim_topn_wrapper(A, B, ntop, lower_bound, use_threads, n_jobs, test_nnz_max=1, expect_best_ntop=expect_best_ntop, sort=sort)
 
     assert (result1 != result2).nnz == 0  # The 2 CSR matrix are the same
     assert result1.nnz == result2.nnz
@@ -119,6 +123,17 @@ def helper_awesome_cossim_topn_dense(
         expect_best_ntop=max_ntop_dense
     )
 
+    awesome_result_unsorted = awesome_cossim_topn_array_wrapper_test(
+        a_csr,
+        b_csr_t,
+        len(b_dense),
+        0.0,
+        use_threads=use_threads,
+        n_jobs=n_jobs,
+        expect_best_ntop=max_ntop_dense,
+        sort=False
+    )
+
     awesome_result_top3 = awesome_cossim_topn_array_wrapper_test(
         a_csr,
         b_csr_t,
@@ -142,6 +157,17 @@ def helper_awesome_cossim_topn_dense(
         expect_best_ntop=max_ntop_dense
     )
 
+    pruned_awesome_result_unsorted = awesome_cossim_topn_array_wrapper_test(
+        a_csr,
+        b_csr_t,
+        len(b_dense),
+        PRUNE_THRESHOLD,
+        use_threads=use_threads,
+        n_jobs=n_jobs,
+        expect_best_ntop=max_ntop_dense,
+        sort=False
+    )
+
     pruned_awesome_result_top3 = awesome_cossim_topn_array_wrapper_test(
         a_csr,
         b_csr_t,
@@ -159,6 +185,11 @@ def helper_awesome_cossim_topn_dense(
     assert awesome_result.nnz == sparse_result.nnz
     # no candidate selection, below PRUNE_THRESHOLD similarity pruned
     assert pruned_awesome_result.nnz == pruned_sparse_result.nnz
+
+    # no candidate selection, no pruning
+    assert awesome_result_unsorted.nnz == sparse_result.nnz
+    # no candidate selection, below PRUNE_THRESHOLD similarity pruned
+    assert pruned_awesome_result_unsorted.nnz == pruned_sparse_result.nnz
 
     all_none1 = np.all(pd.isnull(awesome_result_top3)) and np.all(pd.isnull(sparse_result_top3))
     all_none2 = np.all(pd.isnull(pruned_awesome_result_top3)) and np.all(pd.isnull(pruned_sparse_result_top3))
@@ -221,6 +252,17 @@ def helper_awesome_cossim_topn_sparse(
         expect_best_ntop=max_ntop_sparse
     )
 
+    awesome_result_unsorted = awesome_cossim_topn_array_wrapper_test(
+        a_csr,
+        b_csr_t,
+        b_sparse.shape[0],
+        0.0,
+        use_threads=use_threads,
+        n_jobs=n_jobs,
+        expect_best_ntop=max_ntop_sparse,
+        sort=False
+    )
+
     awesome_result_top3 = awesome_cossim_topn_array_wrapper_test(
         a_csr,
         b_csr_t,
@@ -244,6 +286,17 @@ def helper_awesome_cossim_topn_sparse(
         expect_best_ntop=max_ntop_pruned_sparse
     )
 
+    pruned_awesome_result_unsorted = awesome_cossim_topn_array_wrapper_test(
+        a_csr,
+        b_csr_t,
+        b_sparse.shape[0],
+        PRUNE_THRESHOLD,
+        use_threads=use_threads,
+        n_jobs=n_jobs,
+        expect_best_ntop=max_ntop_pruned_sparse,
+        sort=False
+    )
+
     pruned_awesome_result_top3 = awesome_cossim_topn_array_wrapper_test(
         a_csr,
         b_csr_t,
@@ -261,6 +314,11 @@ def helper_awesome_cossim_topn_sparse(
     assert awesome_result.nnz == sparse_result.nnz
     # no candidate selection, below PRUNE_THRESHOLD similarity pruned
     assert pruned_awesome_result.nnz == pruned_sparse_result.nnz
+
+    # no candidate selection, no pruning
+    assert awesome_result_unsorted.nnz == sparse_result.nnz
+    # no candidate selection, below PRUNE_THRESHOLD similarity pruned
+    assert pruned_awesome_result_unsorted.nnz == pruned_sparse_result.nnz
 
     if flag:
         all_none1 = np.all(pd.isnull(awesome_result_top3)) and np.all(pd.isnull(sparse_result_top3))

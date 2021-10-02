@@ -64,7 +64,7 @@ threaded_ext = Extension('sparse_dot_topn_for_blocks.sparse_dot_topn_threaded',
 
 setup(
     name='sparse_dot_topn_for_blocks',
-    version='0.3.1-1',
+    version='0.3.1-3',
     description='This package is intended for matrix blocks, boosting '
                 'a sparse matrix multiplication followed by selecting '
                 'the top-n multiplication',

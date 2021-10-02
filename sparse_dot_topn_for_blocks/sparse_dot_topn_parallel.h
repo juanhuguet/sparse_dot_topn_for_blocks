@@ -24,6 +24,28 @@
 #define UTILS_CPPCLASS_H
 
 template<typename T>
+extern int sparse_dot_block_parallel(
+		int n_row,
+		int n_col,
+		int Ap[],
+		int Aj[],
+		T Ax[], //data of A
+		int Bp[],
+		int Bj[],
+		T Bx[], //data of B
+		T lower_bound,
+		int Cp[],
+		int Cj[],
+		T Cx[],
+		std::vector<int>* alt_Cj,
+		std::vector<T>* alt_Cx,
+		int nnz_max,
+		int *row_full_nnz,
+		int *n_minmax,
+		int n_jobs
+);
+
+template<typename T>
 extern int sparse_dot_topn_block_parallel(
 		int n_row,
 		int n_col,

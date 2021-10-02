@@ -57,6 +57,26 @@ cdef extern from "sparse_dot_topn_source.h":
 		int* nminmax
 	) except +;
 
+	cdef int sparse_dot_block_source[T](
+		int n_row,
+		int n_col,
+		int Ap[],
+		int Aj[],
+		T Ax[],
+		int Bp[],
+		int Bj[],
+		T Bx[],
+		T lower_bound,
+		int Cp[],
+		int Cj[],
+		T Cx[],
+		vector[int]* alt_Cj,
+		vector[T]* alt_Cx,
+		int nnz_max,
+		int* row_full_nnz,
+		int* nminmax
+	) except +;
+
 	cdef int sparse_dot_topn_extd_source[T](
 		int n_row,
 		int n_col,
@@ -114,13 +134,14 @@ cpdef sparse_dot_topn_block(
 	np.ndarray[int, ndim=1] c_indices,
 	np.ndarray[float_ft, ndim=1] c_data,
 	np.ndarray[int, ndim=1] row_full_nnz,
-	np.ndarray[int, ndim=1] nminmax
+	np.ndarray[int, ndim=1] nminmax,
+	int sorted
 ):
 	"""
 	Cython glue function to call sparse_dot_topn_extd C++
 	implementation.  This function will return a matrix C in CSR
 	format, where
-	C = [sorted top n results > lower_bound for each row of A * B]
+	C = [all results > lower_bound for each row of A * B]
 	The maximum number nminmax of elements per row of C (assuming 
 	n = number of columns of B) is also returned.
 
@@ -131,8 +152,6 @@ cpdef sparse_dot_topn_block(
 		a_indptr, a_indices, a_data: CSR expression of A matrix
 		b_indptr, b_indices, b_data: CSR expression of B matrix
 
-		ntop: n, the number of topmost results > lower_bound for
-			  each row of C
 		lower_bound: a threshold that the element of A*B must
 					 greater than
 
@@ -170,11 +189,19 @@ cpdef sparse_dot_topn_block(
 	cdef vector[int] vCj;
 	cdef vector[float_ft] vCx;
 
-	cdef int nnz_max_is_too_small = sparse_dot_topn_block_source(
-		n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound,
-		Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax
-	)
-	
+	cdef int nnz_max_is_too_small
+
+	if (ntop < n_col) or (sorted != 0):
+		nnz_max_is_too_small = sparse_dot_topn_block_source(
+			n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, ntop, lower_bound,
+			Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax
+		)
+	else:
+		nnz_max_is_too_small = sparse_dot_block_source(
+			n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, lower_bound,
+			Cp, Cj, Cx, &vCj, &vCx, nnz_max, var_row_full_nnz, n_minmax
+		)
+
 	if nnz_max_is_too_small:
 		
 		# raise Exception("In sparse_dot_topn.pyx")

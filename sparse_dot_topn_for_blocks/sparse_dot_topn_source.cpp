@@ -163,6 +163,121 @@ template int sparse_dot_topn_block_source<float>(int n_row, int n_col, int Ap[],
 template int sparse_dot_topn_block_source<double>(int n_row, int n_col, int Ap[], int Aj[], double Ax[], int Bp[], int Bj[], double Bx[], int ntop, double lower_bound, int Cp[], int Cj[], double Cx[], std::vector<int>* alt_Cj, std::vector<double>* alt_Cx, int nnz_max, int* row_full_nnz, int* n_minmax);
 
 /*
+	C++ implementation of sparse_dot_topn
+
+	This function will return a matrix C in CSR format, where
+	C = [all results > lower_bound for each row of A * B]
+
+	Input:
+		n_row: number of rows of A matrix
+		n_col: number of columns of B matrix
+
+		Ap, Aj, Ax: CSR expression of A matrix
+		Bp, Bj, Bx: CSR expression of B matrix
+
+		lower_bound: a threshold that the element of A*B must greater than
+
+	Output by reference:
+		Cp, Cj, Cx: CSR expression of C matrix
+
+	N.B. A and B must be CSR format!!!
+*/
+template<typename T>
+int sparse_dot_block_source(
+		int n_row,
+		int n_col,
+		int Ap[],
+		int Aj[],
+		T Ax[],	//data of A
+		int Bp[],
+		int Bj[],
+		T Bx[],	//data of B
+		T lower_bound,
+		int Cp[],
+		int Cj[],
+		T Cx[], 	//data of C
+		std::vector<int>* alt_Cj,
+		std::vector<T>* alt_Cx,
+		int nnz_max,
+		int* row_full_nnz,
+		int* n_minmax
+)
+{
+	std::vector<int> next(n_col,-1);
+	std::vector<T> sums(n_col, 0);
+
+	int nnz = 0;
+	int nnz_max_is_too_small = 0;
+
+	Cp[0] = 0;
+	*n_minmax = 0;
+
+	for(int i = 0; i < n_row; i++){
+		int head   = -2;
+		int length =  0;
+
+		int jj_start = Ap[i];
+		int jj_end   = Ap[i+1];
+		for(int jj = jj_start; jj < jj_end; jj++){
+			int j = Aj[jj];
+			T v = Ax[jj]; //value of A in (i,j)
+
+			int kk_start = Bp[j];
+			int kk_end   = Bp[j+1];
+			for(int kk = kk_start; kk < kk_end; kk++){
+				int k = Bj[kk]; //kth column of B in row j
+
+				sums[k] += v*Bx[kk]; //multiply with value of B in (j,k) and accumulate to the result for kth column of row i
+
+				if(next[k] == -1){
+					next[k] = head; //keep a linked list, every element points to the next column index
+					head  = k;
+					length++;
+				}
+			}
+		}
+		int prev_nnz = nnz;
+		for(int jj = 0; jj < length; jj++){ //length = number of columns set (may include 0s)
+
+			if(sums[head] > lower_bound){ //append the nonzero elements
+				if (1 + nnz > nnz_max){
+					if (!nnz_max_is_too_small){
+						nnz_max_is_too_small = true;
+						alt_Cj->resize(nnz);
+						alt_Cx->resize(nnz);
+						std::copy(Cj, Cj + nnz, alt_Cj->data());
+						std::copy(Cx, Cx + nnz, alt_Cx->data());
+					}
+					alt_Cj->push_back(head);
+					alt_Cx->push_back(sums[head]);
+					nnz++;
+				}
+				else {
+					Cj[nnz] = head;
+					Cx[nnz] = sums[head];
+					nnz++;
+				}
+			}
+
+			int temp = head;
+			head = next[head]; //iterate over columns
+
+			next[temp] = -1; //clear arrays
+			sums[temp] =  0; //clear arrays
+		}
+
+		int len = nnz - prev_nnz;
+		row_full_nnz[i] += len;
+		*n_minmax = (row_full_nnz[i] > *n_minmax)? row_full_nnz[i] : *n_minmax;
+
+		Cp[i+1] = nnz;
+	}
+	return nnz_max_is_too_small;
+}
+template int sparse_dot_block_source<float>(int n_row, int n_col, int Ap[], int Aj[], float Ax[], int Bp[], int Bj[], float Bx[], float lower_bound, int Cp[], int Cj[], float Cx[], std::vector<int>* alt_Cj, std::vector<float>* alt_Cx, int nnz_max, int* row_full_nnz, int* n_minmax);
+template int sparse_dot_block_source<double>(int n_row, int n_col, int Ap[], int Aj[], double Ax[], int Bp[], int Bj[], double Bx[], double lower_bound, int Cp[], int Cj[], double Cx[], std::vector<int>* alt_Cj, std::vector<double>* alt_Cx, int nnz_max, int* row_full_nnz, int* n_minmax);
+
+/*
 	C++ implementation of sparse_dot_topn_extd_source
 
 	This function will return a matrix C in CSR format, where

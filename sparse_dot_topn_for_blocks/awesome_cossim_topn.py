@@ -12,7 +12,10 @@ else:
 
 
 def awesome_cossim_topn(
-        A, B, ntop, row_ntop_array, lower_bound=0, use_threads=False, n_jobs=1, return_best_ntop=False, test_nnz_max=-1):
+        A, B,
+        ntop, row_ntop_array, lower_bound=0,
+        use_threads=False, n_jobs=1,
+        return_best_ntop=False, test_nnz_max=-1, sort=True):
     """
     This function will return a matrix C in CSR format, where
     C = [sorted top n results > lower_bound for each row of A * B].
@@ -23,11 +26,17 @@ def awesome_cossim_topn(
     Input:
         A and B: two CSR matrices
         ntop: top n results
+        row_ntop_array: a numpy array with length = A.shape[0].  Each element
+            of which corresponds to each row of C and will be incremented
+            with the number of all elements of that row in C > lower_bound
         lower_bound: a threshold that the element of A*B must be greater than
         use_threads: use multi-thread or not
         n_jobs: number of thread, must be >= 1
         return_best_ntop: (default: False) if True, will return best_ntop together 
                           with C as a tuple: (C, best_ntop)
+        sort: bool. True or False.  When ntop >= B.shape[1] will determine if
+            elements of each row will be sorted (True).  Saves time when False.
+            Ignored if ntop < B.shape[1].
 
     Output:
         C: result matrix (returned alone, if return_best_ntop=False)
@@ -64,6 +73,8 @@ def awesome_cossim_topn(
 
     idx_dtype = np.int32
 
+    # N is the limit for ntop
+    ntop = min(ntop, N)
     nnz_max = M*ntop
 
     # basic check. if A or B are all zeros matrix, return all zero matrix directly
@@ -108,7 +119,8 @@ def awesome_cossim_topn(
             B.data,
             ntop,
             lower_bound,
-            indptr, indices, data, row_ntop_array, best_ntop_arr
+            indptr, indices, data, row_ntop_array, best_ntop_arr,
+            1 if sort else 0
         )
 
     else:
@@ -125,7 +137,8 @@ def awesome_cossim_topn(
             B.data,
             ntop,
             lower_bound,
-            indptr, indices, data, row_ntop_array, best_ntop_arr, n_jobs
+            indptr, indices, data, row_ntop_array, best_ntop_arr,
+            1 if sort else 0, n_jobs
         )
 
     if alt_indices is not None:

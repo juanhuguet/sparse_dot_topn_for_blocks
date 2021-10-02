@@ -58,6 +58,27 @@ extern int sparse_dot_topn_block_source(
 );
 
 template<typename T>
+extern int sparse_dot_block_source(
+		int n_row,
+		int n_col,
+		int Ap[],
+		int Aj[],
+		T Ax[],	//data of A
+		int Bp[],
+		int Bj[],
+		T Bx[],	//data of B
+		T lower_bound,
+		int Cp[],
+		int Cj[],
+		T Cx[], 	//data of C
+		std::vector<int>* alt_Cj,
+		std::vector<T>* alt_Cx,
+		int nnz_max,
+		int* row_full_nnz,
+		int* n_minmax
+);
+
+template<typename T>
 extern int sparse_dot_topn_extd_source(
 		int n_row,
 		int n_col,
